@@ -52,10 +52,7 @@ export class ToolManager {
 
   private async fetchTools(client: Client): Promise<any[] | null> {
     try {
-      const toolsResponse = await client.request(
-        { method: "tools/list", params: {} },
-        ListToolsResultSchema
-      );
+      const toolsResponse = await client.listTools();
       const tools = toolsResponse?.tools || [];
 
       if (
@@ -95,16 +92,10 @@ export class ToolManager {
       parsedArgs = {};
     }
 
-    const toolCallPromise = client.request(
-      {
-        method: "tools/call",
-        params: {
-          name,
-          arguments: parsedArgs,
-        },
-      },
-      CallToolResultSchema
-    );
+    const toolCallPromise = client.callTool({
+      name,
+      arguments: parsedArgs,  
+    });
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(

@@ -19,13 +19,16 @@ export function convertToOpenaiTools(tools: any[]): any[] {
       }
 
       return {
-        name: tool.name,
-        description: tool.description || "",
-        parameters: {
-          type: "object",
-          properties: tool.inputSchema?.properties || {},
-          required: tool.inputSchema?.required || [],
-        },
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description || "",
+          parameters: {
+            type: "object",
+            properties: tool.inputSchema?.properties || {},
+            required: tool.inputSchema?.required || [],
+          },
+        }
       };
     })
     .filter(Boolean); // Remove any null entries
