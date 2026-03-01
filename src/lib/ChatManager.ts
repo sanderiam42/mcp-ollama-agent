@@ -27,7 +27,7 @@ export class ChatManager {
       {
         role: "system",
         content:
-          "You are a helpful AI assistant. Please provide clear, accurate, and relevant responses to user queries. If you need to use tools to help answer a question, explain what you're doing.",
+          "You are a helpful AI assistant. Please provide clear, accurate, and relevant responses to user queries. If you need to use tools to help answer a question, explain what you're doing.\n\nYou also have access to a remote Todo application (Todo0). You can read the user's todos, check completed or incomplete items, and view statistics. Use the resource_todo0_* tools when the user asks about their todos, task lists, or productivity stats. These tools take no arguments — just call them by name.",
       },
     ];
   }
@@ -135,6 +135,26 @@ export class ChatManager {
       const args = this.parseToolArguments(toolCall.function.arguments);
       console.log(`Using tool: ${toolCall.function.name}`);
       console.log(`With arguments:`, args);
+
+      // Route resource tools directly — they take no arguments
+      if (this.toolManager.isResourceTool(toolCall.function.name)) {
+        try {
+          const resourceResult = await this.toolManager.readResource(
+            toolCall.function.name
+          );
+          this.messages.push({
+            role: "tool",
+            content: resourceResult,
+            tool_call_id: toolCall.function.name,
+          });
+        } catch (error) {
+          console.error(
+            `Error reading resource '${toolCall.function.name}':`,
+            error instanceof Error ? error.message : String(error)
+          );
+        }
+        continue;
+      }
 
       // Get parameter mapping suggestions before making the call
       const parameterMappings = this.toolManager.suggestParameterMapping(

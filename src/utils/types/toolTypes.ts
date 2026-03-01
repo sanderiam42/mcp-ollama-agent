@@ -3,6 +3,7 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 /**
  * Represents a tool call request from the LLM
@@ -20,7 +21,7 @@ export interface ToolCall {
  */
 export interface McpClientEntry {
   client: Client;
-  transport: StdioClientTransport;
+  transport: StdioClientTransport | StreamableHTTPClientTransport;
 }
 
 /**

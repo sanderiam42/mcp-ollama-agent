@@ -1,15 +1,32 @@
 /**
+ * XAA OAuth authentication configuration
+ */
+export interface XAAAuthConfig {
+  type: "xaa";
+  idpUrl: string;
+  authServerUrl: string;
+  audience: string;
+  scopes: string[];
+}
+
+/**
  * Configuration for an MCP server process
  */
 export interface ServerConfig {
-  /** Command to start the server */
-  command: string;
+  /** Command to start the server (required for stdio transport) */
+  command?: string;
   /** Optional command line arguments */
   args?: string[];
   /** Optional environment variables */
   env?: Record<string, string>;
   /** Optional working directory for the server process */
   cwd?: string;
+  /** Transport type — defaults to "stdio" when command is set */
+  transport?: "stdio" | "streamable-http";
+  /** HTTP server URL (required for streamable-http transport) */
+  url?: string;
+  /** Authentication configuration */
+  auth?: XAAAuthConfig;
 }
 
 /**

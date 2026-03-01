@@ -2,8 +2,8 @@
 
 import {
   CallToolResult,
-  CallToolResultSchema,
   ListToolsResultSchema,
+  Resource,
 } from "@modelcontextprotocol/sdk/types";
 import {
   McpClientEntry,
@@ -16,10 +16,17 @@ import { convertToOpenaiTools } from "../utils/toolFormatters";
 import { createMcpClients } from "../utils/mcpClient";
 import { formatToolResponse } from "../utils/toolFormatters";
 
+interface ResourceToolMapping {
+  toolName: string;
+  resourceUri: string;
+  serverName: string;
+}
+
 export class ToolManager {
   private toolMap: Map<string, Client> = new Map();
   protected clients: Map<string, McpClientEntry> = new Map();
   public tools: any[] = [];
+  private resourceToolMappings: ResourceToolMapping[] = [];
 
   getClients(): Map<string, McpClientEntry> {
     return this.clients;
@@ -34,8 +41,9 @@ export class ToolManager {
     this.clients = newClients;
     let allMcpTools: any[] = [];
 
-    // Fetch tools from all clients
+    // Fetch tools and resources from all clients
     for (const [serverName, { client }] of this.clients.entries()) {
+      // --- Tools ---
       const mcpTools = await this.fetchTools(client);
       if (mcpTools) {
         allMcpTools = allMcpTools.concat(mcpTools);
@@ -43,11 +51,79 @@ export class ToolManager {
           this.toolMap.set(tool.name, client);
         });
       }
+
+      // --- Resources ---
+      let resources: Resource[] = [];
+      try {
+        const result = await client.listResources();
+        resources = result.resources || [];
+      } catch {
+        // Server doesn't support resources — skip silently
+      }
+
+      for (const resource of resources) {
+        const toolName = this.sanitizeResourceName(resource.uri);
+        this.resourceToolMappings.push({
+          toolName,
+          resourceUri: resource.uri,
+          serverName,
+        });
+        allMcpTools.push({
+          name: toolName,
+          description: resource.description || `Read data from ${resource.uri}`,
+          inputSchema: { type: "object", properties: {}, required: [] },
+        });
+        // Note: resource tools are NOT added to toolMap — routing uses isResourceTool()
+      }
     }
 
     // Convert to OpenAI format for Ollama
     this.tools = convertToOpenaiTools(allMcpTools);
     return this.tools;
+  }
+
+  private sanitizeResourceName(uri: string): string {
+    // e.g. "todo0://todos/completed" → "resource_todo0_todos_completed"
+    return (
+      "resource_" +
+      uri
+        .replace(/:\/\//g, "_")
+        .replace(/[^a-zA-Z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "")
+    );
+  }
+
+  isResourceTool(toolName: string): boolean {
+    return this.resourceToolMappings.some((m) => m.toolName === toolName);
+  }
+
+  async readResource(toolName: string): Promise<string> {
+    const mapping = this.resourceToolMappings.find(
+      (m) => m.toolName === toolName
+    );
+    if (!mapping) {
+      throw new Error(`Resource tool '${toolName}' not found`);
+    }
+
+    const entry = this.clients.get(mapping.serverName);
+    if (!entry) {
+      throw new Error(
+        `No client found for server '${mapping.serverName}'`
+      );
+    }
+
+    const result = await entry.client.readResource({ uri: mapping.resourceUri });
+    const contents = result.contents || [];
+
+    return contents
+      .map((item: any) => {
+        if (typeof item.text === "string") {
+          return item.text;
+        }
+        return `[binary resource: ${item.mimeType || "unknown type"}]`;
+      })
+      .join("\n");
   }
 
   private async fetchTools(client: Client): Promise<any[] | null> {
@@ -94,7 +170,7 @@ export class ToolManager {
 
     const toolCallPromise = client.callTool({
       name,
-      arguments: parsedArgs,  
+      arguments: parsedArgs,
     });
 
     const timeoutPromise = new Promise((_, reject) => {
