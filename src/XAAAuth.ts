@@ -7,10 +7,6 @@ export interface XAAAuthParams {
   audience: string;
   scopes: string[];
   idToken: string;
-  // Step 1 client credentials (IDP client)
-  clientId: string;
-  clientSecret: string;
-  // Step 2 client credentials (resource/auth server client)
   resourceClientId: string;
   resourceClientSecret: string;
 }
@@ -23,7 +19,7 @@ export interface XAAAuthParams {
  */
 export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> {
   // Step 1: exchange the user's ID token for an ID-JAG JWT
-  const step1BasicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
+  const step1BasicAuth = Buffer.from(`${config.resourceClientId}:${config.resourceClientSecret}`).toString("base64");
   const idpResponse = await fetch(`${config.idpUrl}/token`, {
     method: "POST",
     headers: {
@@ -54,23 +50,8 @@ export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> 
     throw new Error("XAA step 1: no access_token in IDP response");
   }
 
-  // Debug: decode and log the ID-JAG claims
-  try {
-    const [, payload] = idJag.split(".");
-    const claims = JSON.parse(Buffer.from(payload, "base64url").toString());
-    console.error("[XAA debug] ID-JAG claims:", JSON.stringify(claims, null, 2));
-  } catch {
-    console.error("[XAA debug] Could not decode ID-JAG payload");
-  }
-
   // Step 2: exchange the ID-JAG for the final Bearer token
   const step2BasicAuth = Buffer.from(`${config.resourceClientId}:${config.resourceClientSecret}`).toString("base64");
-  console.error("[XAA debug] Step 2 request:", {
-    url: `${config.authServerUrl}/token`,
-    clientId: config.resourceClientId,
-    basicAuthHeader: `Basic ${step2BasicAuth.slice(0, 8)}...`,
-    scope: config.scopes.join(" "),
-  });
   const authResponse = await fetch(`${config.authServerUrl}/token`, {
     method: "POST",
     headers: {
