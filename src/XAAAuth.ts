@@ -50,7 +50,23 @@ export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> 
     throw new Error("XAA step 1: no access_token in IDP response");
   }
 
+  // Debug: decode and log the ID-JAG claims
+  try {
+    const [, payload] = idJag.split(".");
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString());
+    console.error("[XAA debug] ID-JAG claims:", JSON.stringify(claims, null, 2));
+  } catch {
+    console.error("[XAA debug] Could not decode ID-JAG payload");
+  }
+
   // Step 2: exchange the ID-JAG for the final Bearer token
+  console.error("[XAA debug] Step 1 client:", config.resourceClientId);
+  console.error("[XAA debug] Step 2 request:", {
+    url: `${config.authServerUrl}/token`,
+    clientId: config.resourceClientId,
+    scope: config.scopes.join(" "),
+    resource: config.audience,
+  });
   const step2BasicAuth = Buffer.from(`${config.resourceClientId}:${config.resourceClientSecret}`).toString("base64");
   const authResponse = await fetch(`${config.authServerUrl}/token`, {
     method: "POST",
@@ -62,6 +78,7 @@ export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> 
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: idJag,
       scope: config.scopes.join(" "),
+      resource: config.audience,
     }).toString(),
   });
 
