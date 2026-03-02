@@ -34,9 +34,9 @@ export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> 
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: config.idToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
-      requested_token_type: "urn:ietf:params:oauth:token-type:oauth-id-jag+jwt",
-      resource: config.audience,
-      audience: config.audience,
+      requested_token_type: "urn:ietf:params:oauth:token-type:id-jag",
+      resource: config.authServerUrl,
+      scope: config.scopes.join(" "),
     }).toString(),
   });
 
