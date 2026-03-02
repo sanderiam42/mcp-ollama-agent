@@ -31,6 +31,8 @@ export async function createMcpClients() {
       if (serverConfig.auth?.type === "xaa") {
         const requiredEnv = {
           XAA_ID_TOKEN: process.env.XAA_ID_TOKEN,
+          XAA_CLIENT_ID: process.env.XAA_CLIENT_ID,
+          XAA_CLIENT_SECRET: process.env.XAA_CLIENT_SECRET,
           XAA_RESOURCE_CLIENT_ID: process.env.XAA_RESOURCE_CLIENT_ID,
           XAA_RESOURCE_CLIENT_SECRET: process.env.XAA_RESOURCE_CLIENT_SECRET,
         };
@@ -46,7 +48,7 @@ export async function createMcpClients() {
           continue;
         }
 
-        const { XAA_ID_TOKEN, XAA_RESOURCE_CLIENT_ID, XAA_RESOURCE_CLIENT_SECRET } = requiredEnv as Record<string, string>;
+        const { XAA_ID_TOKEN, XAA_CLIENT_ID, XAA_CLIENT_SECRET, XAA_RESOURCE_CLIENT_ID, XAA_RESOURCE_CLIENT_SECRET } = requiredEnv as Record<string, string>;
 
         try {
           const accessToken = await getXAAAccessToken({
@@ -55,6 +57,8 @@ export async function createMcpClients() {
             audience: serverConfig.auth.audience,
             scopes: serverConfig.auth.scopes,
             idToken: XAA_ID_TOKEN,
+            clientId: XAA_CLIENT_ID,
+            clientSecret: XAA_CLIENT_SECRET,
             resourceClientId: XAA_RESOURCE_CLIENT_ID,
             resourceClientSecret: XAA_RESOURCE_CLIENT_SECRET,
           });

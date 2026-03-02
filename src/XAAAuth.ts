@@ -7,6 +7,10 @@ export interface XAAAuthParams {
   audience: string;
   scopes: string[];
   idToken: string;
+  // Step 1 client credentials (IDP client)
+  clientId: string;
+  clientSecret: string;
+  // Step 2 client credentials (resource/auth server client)
   resourceClientId: string;
   resourceClientSecret: string;
 }
@@ -19,7 +23,7 @@ export interface XAAAuthParams {
  */
 export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> {
   // Step 1: exchange the user's ID token for an ID-JAG JWT
-  const step1BasicAuth = Buffer.from(`${config.resourceClientId}:${config.resourceClientSecret}`).toString("base64");
+  const step1BasicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
   const idpResponse = await fetch(`${config.idpUrl}/token`, {
     method: "POST",
     headers: {
