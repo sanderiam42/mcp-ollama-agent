@@ -29,13 +29,26 @@ export async function createMcpClients() {
       let fetchImpl: typeof fetch | undefined;
 
       if (serverConfig.auth?.type === "xaa") {
-        const idToken = process.env.XAA_ID_TOKEN;
-        if (!idToken) {
+        const requiredEnv = {
+          XAA_ID_TOKEN: process.env.XAA_ID_TOKEN,
+          XAA_CLIENT_ID: process.env.XAA_CLIENT_ID,
+          XAA_CLIENT_SECRET: process.env.XAA_CLIENT_SECRET,
+          XAA_RESOURCE_CLIENT_ID: process.env.XAA_RESOURCE_CLIENT_ID,
+          XAA_RESOURCE_CLIENT_SECRET: process.env.XAA_RESOURCE_CLIENT_SECRET,
+        };
+
+        const missing = Object.entries(requiredEnv)
+          .filter(([, v]) => !v)
+          .map(([k]) => k);
+
+        if (missing.length > 0) {
           console.error(
-            `[${serverName}] Skipping: auth.type is "xaa" but XAA_ID_TOKEN env var is not set.`
+            `[${serverName}] Skipping: missing env vars: ${missing.join(", ")}`
           );
           continue;
         }
+
+        const { XAA_ID_TOKEN, XAA_CLIENT_ID, XAA_CLIENT_SECRET, XAA_RESOURCE_CLIENT_ID, XAA_RESOURCE_CLIENT_SECRET } = requiredEnv as Record<string, string>;
 
         try {
           const accessToken = await getXAAAccessToken({
@@ -43,7 +56,11 @@ export async function createMcpClients() {
             authServerUrl: serverConfig.auth.authServerUrl,
             audience: serverConfig.auth.audience,
             scopes: serverConfig.auth.scopes,
-            idToken,
+            idToken: XAA_ID_TOKEN,
+            clientId: XAA_CLIENT_ID,
+            clientSecret: XAA_CLIENT_SECRET,
+            resourceClientId: XAA_RESOURCE_CLIENT_ID,
+            resourceClientSecret: XAA_RESOURCE_CLIENT_SECRET,
           });
           fetchImpl = createAuthenticatedFetch(accessToken);
         } catch (error) {

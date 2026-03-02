@@ -7,6 +7,12 @@ export interface XAAAuthParams {
   audience: string;
   scopes: string[];
   idToken: string;
+  // Step 1 client credentials (IDP client)
+  clientId: string;
+  clientSecret: string;
+  // Step 2 client credentials (resource/auth server client)
+  resourceClientId: string;
+  resourceClientSecret: string;
 }
 
 /**
@@ -17,9 +23,13 @@ export interface XAAAuthParams {
  */
 export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> {
   // Step 1: exchange the user's ID token for an ID-JAG JWT
+  const step1BasicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
   const idpResponse = await fetch(`${config.idpUrl}/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${step1BasicAuth}`,
+    },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: config.idToken,
@@ -42,9 +52,13 @@ export async function getXAAAccessToken(config: XAAAuthParams): Promise<string> 
   }
 
   // Step 2: exchange the ID-JAG for the final Bearer token
+  const step2BasicAuth = Buffer.from(`${config.resourceClientId}:${config.resourceClientSecret}`).toString("base64");
   const authResponse = await fetch(`${config.authServerUrl}/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${step2BasicAuth}`,
+    },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: idJag,
