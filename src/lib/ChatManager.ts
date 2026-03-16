@@ -10,18 +10,28 @@ interface ErrorWithCause extends Error {
   };
 }
 
+interface ChatFlags {
+  sysprompt: boolean;
+  showpayloads: boolean;
+}
+
 export class ChatManager {
   private ollama: Ollama;
   private messages: OllamaMessage[] = [];
   private toolManager: ToolManager;
   private chatInterface: ChatInterface;
   private model: string;
+  private flags: ChatFlags;
 
-  constructor(ollamaConfig: { host?: string; model?: string } = {}) {
+  constructor(
+    ollamaConfig: { host?: string; model?: string } = {},
+    flags: ChatFlags = { sysprompt: false, showpayloads: false }
+  ) {
     this.ollama = new Ollama(ollamaConfig);
     this.model = ollamaConfig.model || "qwen2.5:latest"; // Default fallback if not provided
     this.toolManager = new ToolManager();
     this.chatInterface = new ChatInterface();
+    this.flags = flags;
 
     this.messages = [
       {
@@ -66,6 +76,17 @@ export class ChatManager {
     try {
       console.log('Chat started. Type "exit" to end the conversation.');
 
+      if (this.flags.sysprompt) {
+        console.log('Enter a system prompt (or press Enter to use the default):');
+        const customPrompt = await this.chatInterface.getUserInput();
+        if (customPrompt.trim().length > 0) {
+          this.messages[0].content = customPrompt.trim();
+          console.log('System prompt set.');
+        } else {
+          console.log('Using default system prompt.');
+        }
+      }
+
       while (true) {
         const userInput = await this.chatInterface.getUserInput();
         if (userInput.toLowerCase() === "exit") break;
@@ -104,11 +125,13 @@ export class ChatManager {
 
     try {
       // Get initial response
-      const response = await this.ollama.chat({
+      const payload1 = {
         model: this.model,
         messages: this.messages as any[],
         tools: this.toolManager.tools,
-      });
+      };
+      this.logPayload(payload1);
+      const response = await this.ollama.chat(payload1);
 
       this.messages.push(response.message as OllamaMessage);
 
@@ -182,11 +205,13 @@ export class ChatManager {
 
           try {
             // Let the model know about the error and try again
-            const errorResponse = await this.ollama.chat({
+            const payload2 = {
               model: this.model,
               messages: this.messages as any[],
               tools: this.toolManager.tools,
-            });
+            };
+            this.logPayload(payload2);
+            const errorResponse = await this.ollama.chat(payload2);
 
             this.messages.push(errorResponse.message as OllamaMessage);
 
@@ -234,11 +259,13 @@ export class ChatManager {
 
     try {
       // Get final response after all tools in this batch are done
-      const finalResponse = await this.ollama.chat({
+      const payload3 = {
         model: this.model,
         messages: this.messages as any[],
         tools: this.toolManager.tools,
-      });
+      };
+      this.logPayload(payload3);
+      const finalResponse = await this.ollama.chat(payload3);
 
       // Add the model's response to messages
       this.messages.push(finalResponse.message as OllamaMessage);
@@ -326,6 +353,14 @@ export class ChatManager {
       }
     }
     return args;
+  }
+
+  private logPayload(payload: { model: string; messages: any[]; tools: any[] }) {
+    if (this.flags.showpayloads) {
+      console.log("\n--- Ollama Payload ---");
+      console.log(JSON.stringify(payload, null, 2));
+      console.log("--- End Payload ---\n");
+    }
   }
 
   private cleanup() {
